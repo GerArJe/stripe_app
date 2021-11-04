@@ -5,11 +5,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:stripe_app/bloc/pagar/pagar_bloc.dart';
+import 'package:stripe_app/helpers/helpers.dart';
+import 'package:stripe_app/services/stripe_service.dart';
+import 'package:stripe_payment/stripe_payment.dart';
 
 class TotalPayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
+    final pagarBloc = BlocProvider.of<PagarBloc>(context);
+
     return Container(
       width: width,
       height: 100,
@@ -32,7 +37,7 @@ class TotalPayButton extends StatelessWidget {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               Text(
-                '250.55 USD',
+                '${pagarBloc.state.montoPagar} ${pagarBloc.state.moneda}',
                 style: TextStyle(fontSize: 20),
               ),
             ],
@@ -82,7 +87,29 @@ class _BtnPay extends StatelessWidget {
           ),
         ],
       ),
-      onPressed: () {},
+      onPressed: () async {
+        final stripeService = StripeService();
+        final state = BlocProvider.of<PagarBloc>(context).state;
+        final tarjeta = state.tarjeta;
+        if (tarjeta != null) {
+          mostrarLoading(context);
+          final mesAnio = tarjeta.expiracyDate.split('/');
+          final resp = await stripeService.pagarConTarjetaExiste(
+              amount: state.montoPagarString,
+              currency: state.moneda,
+              card: CreditCard(
+                number: tarjeta.cardNumber,
+                expMonth: int.parse(mesAnio[0]),
+                expYear: int.parse(mesAnio[1]),
+              ));
+          Navigator.pop(context);
+          if (resp.ok) {
+            mostrarAlerta(context, 'Tarjeta ok', 'Todo Correcto');
+          } else {
+            mostrarAlerta(context, 'Algo salió mal', resp.msg);
+          }
+        }
+      },
     );
   }
 
