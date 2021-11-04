@@ -58,10 +58,38 @@ class StripeService {
     }
   }
 
-  Future pagarApplePayGooglePay({
+  Future<StripeCustomResponse> pagarApplePayGooglePay({
     required String amount,
     required String currency,
-  }) async {}
+  }) async {
+    try {
+      final newAmount = double.parse(amount) / 100;
+      final token = await StripePayment.paymentRequestWithNativePay(
+          androidPayOptions: AndroidPayPaymentRequest(
+              currencyCode: currency, totalPrice: amount),
+          applePayOptions: ApplePayPaymentOptions(
+            countryCode: 'US',
+            currencyCode: currency,
+            items: [
+              ApplePayItem(
+                label: 'Super prodcuto',
+                amount: amount,
+              ),
+            ],
+          ));
+      final paymentMethod =
+          await StripePayment.createPaymentMethod(PaymentMethodRequest(
+        card: CreditCard(token: token.tokenId),
+      ));
+      final resp = await _realizarPago(
+          amount: amount, currency: currency, paymentMethod: paymentMethod);
+      await StripePayment.completeNativePayRequest();
+      return resp;
+    } catch (e) {
+      print('Error en intento: ${e.toString()}');
+      return StripeCustomResponse(ok: false, msg: e.toString());
+    }
+  }
 
   Future<PaymentInentReponse> _crearPaymentIntent({
     required String amount,
